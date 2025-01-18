@@ -1,8 +1,24 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Breach } from './breach.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class AppService {
-  getHello(): string {
-    return 'Hello World!';
+  constructor(
+    @InjectRepository(Breach)
+    private breachRepository: Repository<Breach>,
+  ) {}
+
+  findAll(): Promise<Breach[]> {
+    return this.breachRepository.find();
+  }
+
+  findOne(id: string): Promise<Breach | null> {
+    return this.breachRepository.findOne({ id });
+  }
+
+  async remove(id: string): Promise<void> {
+    await this.breachRepository.delete(id);
   }
 }
