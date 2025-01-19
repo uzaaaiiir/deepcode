@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { Groq } from 'groq-sdk';
 
 //import Configuration, { OpenAI } from 'openai';
-import pLimit from 'p-limit';
+//import pLimit from 'p-limit';
 
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -16,7 +16,7 @@ import { Like } from 'typeorm';
 
 @Injectable()
 export class AppService {
-  private limit: any; // rate limiter
+  //private limit: any; // rate limiter
 
   private postsCache: any | null = null;
   private groupsCache: any | null = null;
@@ -26,7 +26,7 @@ export class AppService {
     private breachRepository: Repository<Breach>,
   ) {
     const maxRequestPerMinute = 60; // 60 req / min
-    this.limit = pLimit(Math.floor(maxRequestPerMinute / 60)); // 1 req / min
+    //this.limit = pLimit(Math.floor(maxRequestPerMinute / 60)); // 1 req / min
   }
 
   /**
@@ -257,7 +257,7 @@ export class AppService {
 
   async verifyUrl(url: string) {
     try {
-      const response = await axios.get(url, { timeout: 10000 });
+      const response = await axios.get(url, { timeout: 15000 });
       const $ = cheerio.load(response.data);
       const title = $('title').text();
       return {
@@ -289,7 +289,7 @@ export class AppService {
 
   async fetchHtml(url: string): Promise<string | null> {
     try {
-      const response = await axios.get(url, { timeout: 10000 });
+      const response = await axios.get(url, { timeout: 15000 });
       return response.data;
     } catch (error) {
       console.error('Error fetching html:', error.message);
