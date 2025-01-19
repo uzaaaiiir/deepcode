@@ -308,7 +308,12 @@ export class AppService {
     const linkedGroups = groups.filter((group) =>
       group.locations.some((location: any) => location.fqdn.includes(domain)),
     );
-    linkedGroups.forEach((group) => tags.push(`RANSOM_GROUP: ${group.name}`));
+
+    const groupNames = linkedGroups.map((group) => group.name).slice(0, 5);
+    
+    if (groupNames.length > 0) {
+      tags.push(`RANSOM_GROUP: ${groupNames.join(', ')}`);
+    }
 
     // Match title with posts
     const matchingPost = posts.find((post) => title.includes(post.post_title));
