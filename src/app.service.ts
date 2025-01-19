@@ -29,11 +29,11 @@ export class AppService {
     //this.limit = pLimit(Math.floor(maxRequestPerMinute / 60)); // 1 req / min
   }
 
-   /**
+  /**
    * Detect the application associated with a URL based on predefined patterns.
    * @param url - URL to analyze.
    */
-   private detectApplication(url: string): string {
+  private detectApplication(url: string): string {
     const patterns = [
       { app: 'WordPress', regex: /wp-login\.php|wp-admin/i },
       { app: 'Joomla', regex: /administrator\/index\.php/i },
@@ -130,7 +130,6 @@ export class AppService {
       const application = this.detectApplication(url);
 
       const allTags = [...dnsTags, ...urlTags, ...formTags.tags, ...ransomTags];
-    
 
       const breach = new Breach();
       breach.username = username;
@@ -201,7 +200,7 @@ export class AppService {
       } else if (key === 'routableOnly' && value === 'true') {
         // Filter out non-routable IPs
         qb.andWhere(
-          `(NOT breach.ipAddress LIKE '127.%' AND NOT breach.ipAddress = 'localhost' AND NOT breach.ipAddress LIKE '192.168.%' AND NOT breach.ipAddress LIKE '10.%' AND NOT (breach.ipAddress LIKE '172.%' AND SUBSTRING_INDEX(breach.ipAddress, '.', 2) BETWEEN '172.16' AND '172.31'))`,
+          `(NOT breach.ipAddress LIKE '127.%' AND NOT breach.ipAddress = 'localhost' AND NOT breach.ipAddress = '0.0.0.0' AND NOT breach.ipAddress LIKE '192.168.%' AND NOT breach.ipAddress LIKE '10.%' AND NOT (breach.ipAddress LIKE '172.%' AND SUBSTRING_INDEX(breach.ipAddress, '.', 2) BETWEEN '172.16' AND '172.31'))`,
         );
       } else {
         qb.andWhere(`breach.${key} = :${key}`, { [key]: value });
@@ -296,7 +295,7 @@ export class AppService {
     );
 
     const groupNames = linkedGroups.map((group) => group.name).slice(0, 5);
-    
+
     if (groupNames.length > 0) {
       tags.push(`RANSOM_GROUP: ${groupNames.join(', ')}`);
     }
