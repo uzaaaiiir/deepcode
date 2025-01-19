@@ -3,7 +3,7 @@ import { AppService } from './app.service';
 import { extname } from 'path';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Post, Get, UploadedFile, UseInterceptors, Query } from '@nestjs/common';
 
 @Controller()
 export class AppController {
@@ -50,5 +50,13 @@ export class AppController {
       console.error('error processing file', error);
       throw new Error('failed to process file try again');
     }
+  }
+
+  @Get('/breaches')
+  async getAllBreaches(
+    @Query() query: Record<string, string>,
+  ): Promise<any> {
+    // Pass the filters to the service
+    return this.appService.filterBreaches(query);
   }
 }

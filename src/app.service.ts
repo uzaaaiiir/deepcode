@@ -12,6 +12,7 @@ import * as cheerio from 'cheerio';
 import { resolve4 } from 'dns/promises';
 import * as fs from 'fs';
 import * as readline from 'readline';
+import { Like } from 'typeorm';
 
 @Injectable()
 export class AppService {
@@ -194,6 +195,31 @@ export class AppService {
     }
   }
 
+  async filterBreaches(query: Record<string, string>): Promise<any> {
+    const qb = this.breachRepository.createQueryBuilder('breach');
+  
+    // Apply filters dynamically
+    for (const [key, value] of Object.entries(query)) {
+      if (key === 'tags') {
+        // Handle multiple tags
+        const tags = value.split(','); // Split tags by comma
+        tags.forEach((tag, index) => {
+          qb.andWhere(`FIND_IN_SET(:tag${index}, breach.tags) > 0`, {
+            [`tag${index}`]: tag.trim(),
+          });
+        });
+      } else {
+        qb.andWhere(`breach.${key} = :${key}`, { [key]: value });
+      }
+    }
+  
+    return qb.getMany();
+  }  
+
+
+  findAll(): Promise<Breach[]> {
+    return this.breachRepository.find();
+  }
   // async resolveIpAddress(domain: string) {
   //   try {
   //     const addresses = await resolve4(domain);
