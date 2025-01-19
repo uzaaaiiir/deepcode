@@ -15,20 +15,29 @@ export class AppService {
 
   async parseFile(filePath: string): Promise<any> {
     // parse the file by lne and store in a list
-    const parsedData: string[] = [];
+    const parsedData = [];
+    const start = Date.now();
 
-    const fileStream = fs.createReadStream(filePath);
-    const rl = readline.createInterface({
-      input: fileStream,
-      crlfDelay: Infinity,
+    return new Promise((resolve, reject) => {
+      const fileStream = fs.createReadStream(filePath);
+      const rl = readline.createInterface({
+        input: fileStream,
+        crlfDelay: Infinity,
+      });
+
+      rl.on('line', async (line) => {
+        parsedData.push(line);
+      });
+
+      rl.on('close', () => {
+        console.log(`Processing completed in ${Date.now() - start}ms`);
+        resolve(parsedData);
+      });
+
+      rl.on('error', (err) => {
+        reject(err);
+      });
     });
-
-    for await (const line of rl) {
-      parsedData.push(line);
-      console.log(line);
-    }
-
-    return parsedData;
   }
 
   findAll(): Promise<Breach[]> {
