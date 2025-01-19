@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Breach } from './breach.entity';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
@@ -14,7 +15,10 @@ import { Breach } from './breach.entity';
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       entities: [Breach],
+      synchronize: true,
     }),
+    TypeOrmModule.forFeature([Breach]),
+    ConfigModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],

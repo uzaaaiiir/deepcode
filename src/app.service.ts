@@ -14,8 +14,8 @@ export class AppService {
     return this.breachRepository.find();
   }
 
-  findOne(id: string): Promise<Breach | null> {
-    return this.breachRepository.findOne({ id });
+  findOne(id: number): Promise<Breach | null> {
+    return this.breachRepository.findOne({ where: { id } });
   }
 
   async remove(id: string): Promise<void> {
