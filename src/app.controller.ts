@@ -29,7 +29,7 @@ export class AppController {
   async handleUpload(@UploadedFile() file: Express.Multer.File): Promise<any> {
     try {
       // parse the uploaded file
-      const parsedData = await this.appService.parseFile(file.path);
+      const data = await this.appService.parseAndEnrichFile(file.path);
 
       // enrich the data
       // const enrichedData = await Promise.all(
@@ -39,11 +39,11 @@ export class AppController {
       // );
 
       // // save the database with the enriched data
-      await this.appService.seedDatabase(parsedData);
+      // await this.appService.seedDatabase(parsedData);
 
       return {
         message: 'file processed successfully',
-        parsedData,
+        data,
         // enrichedData,
       };
     } catch (error) {
