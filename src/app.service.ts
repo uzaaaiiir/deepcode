@@ -29,43 +29,36 @@ export class AppService {
     //this.limit = pLimit(Math.floor(maxRequestPerMinute / 60)); // 1 req / min
   }
 
-  /**
-   * Detect the application associated with a batch of URLs using Grönq AI.
-   * @param batch - Array of URLs to analyze.
+   /**
+   * Detect the application associated with a URL based on predefined patterns.
+   * @param url - URL to analyze.
    */
-  private async detectApplication(
-    batch: string[],
-  ): Promise<{ url: string; application: string }[]> {
-    const results: { url: string; application: string }[] = [];
+   private detectApplication(url: string): string {
+    const patterns = [
+      { app: 'WordPress', regex: /wp-login\.php|wp-admin/i },
+      { app: 'Joomla', regex: /administrator\/index\.php/i },
+      { app: 'Magento', regex: /\/admin|\/admin\/login/i },
+      { app: 'Drupal', regex: /user\/login/i },
+      { app: 'Shopify', regex: /\.myshopify\.com/i },
+      { app: 'Roblox', regex: /roblox\.com\/account\/signupredir/i },
+      { app: 'Discord', regex: /discord\.com\/login|discordapp\.com/i },
+      { app: 'Facebook', regex: /facebook\.com\/login\.php|facebook\.com/i },
+      { app: 'Amazon', regex: /amazon\.com|amazon\.co\.uk/i },
+      { app: 'Netflix', regex: /netflix\.com/i },
+      { app: 'Google', regex: /accounts\.google\.com|\/signin/i },
+      { app: 'Apple', regex: /apple\.com/i },
+      { app: 'GitHub', regex: /github\.com\/login/i },
+      { app: 'Twitter', regex: /twitter\.com/i },
+      { app: 'LinkedIn', regex: /linkedin\.com\/login/i },
+    ];
 
-    for (const url of batch) {
-      try {
-        const groq = new Groq();
-        const response = await groq.chat.completions.create({
-          messages: [
-            {
-              role: 'system',
-              content: `You are an AI system tasked with analyzing a URL to identify the associated application or platform.
-          Examples of applications include WordPress, Joomla, Magento, Drupal, Shopify, or proprietary platforms.
-          Your task is to carefully analyze the URL structure and any patterns that might indicate the application used.
-          If you cannot confidently identify an application, respond with "UNKNOWN".
-
-          URL to analyze: ${url}`,
-            },
-          ],
-          model: 'llama-3.3-70b-versatile', // Replace with the Grönq model suitable for your task
-        });
-
-        const application =
-          response.choices[0]?.message?.content?.trim() || 'UNKNOWN';
-        results.push({ url, application });
-      } catch (error) {
-        Logger.error(`Error processing URL ${url}: ${error.message}`);
-        results.push({ url, application: 'UNKNOWN' });
+    for (const pattern of patterns) {
+      if (pattern.regex.test(url)) {
+        return pattern.app;
       }
     }
 
-    return results;
+    return 'UNKNOWN';
   }
 
   /**
@@ -134,17 +127,10 @@ export class AppService {
       const html = status === 200 ? await this.fetchHtml(url) : null;
       const formTags = html ? await this.analyzeLoginForm(html) : { tags: [] };
       const ransomTags = await this.getRansomTags(domain, title);
-      //const appTags = await this.identifyAppTags(path);
-      const detectedApplications = await this.detectApplication([url]);
-      const application =
-        detectedApplications.length > 0
-          ? detectedApplications[0].application
-          : 'UNKNOWN';
+      const application = this.detectApplication(url);
 
       const allTags = [...dnsTags, ...urlTags, ...formTags.tags, ...ransomTags];
-      if (application !== 'UNKNOWN') {
-        allTags.push(`app: ${application}`);
-      }
+    
 
       const breach = new Breach();
       breach.username = username;
