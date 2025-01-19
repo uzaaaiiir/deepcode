@@ -99,7 +99,7 @@ export class AppService {
 
   async processLine(line: string): Promise<void> {
     const { username, password, url } = this.getUsernamePasswordAndUrl(line);
-    if (!username || !password || !url.startsWith('http')) {
+    if (!username || !password || !url) {
       Logger.warn(`Skipping malformed line: ${line}`);
       return;
     }
@@ -160,18 +160,35 @@ export class AppService {
 
       return { domain, protocol, path, port };
     } catch (error) {
-      console.error('Error parsing url', error);
+      console.error('Error parsing url', error.message);
       return { domain: '', protocol: '', path: '', port: '' };
     }
   }
+
+  // async resolveIpAddress(domain: string) {
+  //   try {
+  //     const addresses = await resolve4(domain);
+  //     return { ipAddress: addresses[0], tags: [] };
+  //   } catch (error) {
+  //     console.error('Error resolving domain:', error.message);
+  //     return { ipAddress: '0.0.0.0', tags: ['unresolved'] };
+  //   }
+  // }
 
   async resolveIpAddress(domain: string) {
     try {
       const addresses = await resolve4(domain);
       return { ipAddress: addresses[0], tags: [] };
     } catch (error) {
-      console.error('Error resolving domain:', error.message);
-      return { ipAddress: '0.0.0.0', tags: ['unresolved'] };
+      Logger.warn(`DNS resolution failed for ${domain}, trying root domain`);
+      const rootDomain = domain.split('.').slice(-2).join('.');
+      try {
+        const addresses = await resolve4(rootDomain);
+        return { ipAddress: addresses[0], tags: ['root-domain-fallback'] };
+      } catch {
+        console.error('Error resolving domain:', error.message);
+        return { ipAddress: '0.0.0.0', tags: ['unresolved'] };
+      }
     }
   }
 
