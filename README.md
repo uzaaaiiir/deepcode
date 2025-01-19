@@ -1,3 +1,12 @@
+## uOttaHack 7 Project Submission
+
+ThreatWatch is our team's submission to DeepCode's challenge for uOttaHack 7. We used Next.js , Shadcn and Tailwind for the front-end, and Nest.js, Typescript and MySQL for the back-end.
+
+This tool enables organizations to efficiently parse, store, enrich, and search vast amounts of breach data, facilitating quicker incident response and mitigating potential threats.
+
+The application focuses on processing large text files containing sensitive breach data (e.g., usernames, passwords, URLs), parsing this data into a structured format, and enriching it with additional context for enhanced usability. By doing so, ThreatWatch helps affected organizations identify specific breached data, prioritize incident responses, and take corrective measures efficiently.
+
+--------
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
