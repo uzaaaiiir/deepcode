@@ -32,18 +32,19 @@ export class AppController {
       const parsedData = await this.appService.parseFile(file.path);
 
       // enrich the data
-      const enrichedData = await Promise.all(
-        parsedData.map(async (data) => {
-          return await this.appService.enrichData(data.url);
-        }),
-      );
+      // const enrichedData = await Promise.all(
+      //   parsedData.map(async (data) => {
+      //     return await this.appService.enrichData(data.url);
+      //   }),
+      // );
 
       // // save the database with the enriched data
-      await this.appService.seedDatabase(enrichedData);
+      await this.appService.seedDatabase(parsedData);
 
       return {
         message: 'file processed successfully',
-        enrichedData,
+        parsedData,
+        // enrichedData,
       };
     } catch (error) {
       console.error('error processing file', error);

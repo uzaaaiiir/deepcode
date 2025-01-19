@@ -28,4 +28,13 @@ export class Breach {
 
   @Column({ nullable: true })
   title: string;
+
+  @Column({ nullable: true })
+  port: number;
+
+  @Column({ nullable: true })
+  urlPath: string;
+
+  @Column({ nullable: true })
+  protocol: string;
 }
