@@ -37,4 +37,7 @@ export class Breach {
 
   @Column({ nullable: true })
   protocol: string;
+
+  @Column({ nullable: true })
+  app : string;
 }

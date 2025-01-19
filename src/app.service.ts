@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Breach } from './breach.entity';
 import { Repository } from 'typeorm';
+import { Groq } from 'groq-sdk';
+
+//import Configuration, { OpenAI } from 'openai';
+import pLimit from 'p-limit';
 
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -11,10 +15,77 @@ import * as readline from 'readline';
 
 @Injectable()
 export class AppService {
+
+  private limit: any; // rate limiter
+
+  private postsCache: any | null = null;
+  private groupsCache: any | null = null;
+
   constructor(
     @InjectRepository(Breach)
     private breachRepository: Repository<Breach>,
-  ) {}
+  ) {
+
+    const maxRequestPerMinute = 60; // 60 req / min
+    this.limit = pLimit(Math.floor(maxRequestPerMinute / 60)); // 1 req / min 
+  }
+
+
+  /**
+   * Detect the application associated with a batch of URLs using Grönq AI.
+   * @param batch - Array of URLs to analyze.
+   */
+  private async detectApplication(batch: string[]): Promise<{ url: string; application: string }[]> {
+    const results: { url: string; application: string }[] = [];
+
+    for (const url of batch) {
+      try {
+        const groq = new Groq();
+        const response = await groq.chat.completions.create({
+          messages: [ 
+          {
+            role: 'system',
+            content: `You are an AI system tasked with analyzing a URL to identify the associated application or platform.
+          Examples of applications include WordPress, Joomla, Magento, Drupal, Shopify, or proprietary platforms. 
+          Your task is to carefully analyze the URL structure and any patterns that might indicate the application used.
+          If you cannot confidently identify an application, respond with "UNKNOWN".
+  
+          URL to analyze: ${url}`,
+          },
+        ],
+          model: 'llama-3.3-70b-versatile', // Replace with the Grönq model suitable for your task
+        });
+  
+        const application = response.choices[0]?.message?.content?.trim() || 'UNKNOWN';
+        results.push({ url, application });
+      } catch (error) {
+        Logger.error(`Error processing URL ${url}: ${error.message}`);
+        results.push({ url, application: 'UNKNOWN' });
+      }
+    }
+  
+    return results;
+  }
+
+  /**
+   * Fetch and cache RansomWatch data.
+   */
+  private async fetchRansomWatchData() {
+    if (!this.postsCache || !this.groupsCache) {
+      const postsUrl = 'https://raw.githubusercontent.com/joshhighet/ransomwatch/main/posts.json'; 
+      const groupsUrl = 'https://raw.githubusercontent.com/joshhighet/ransomwatch/main/groups.json'; 
+
+      const [postsResponse, groupsResponse] = await Promise.all([
+        axios.get(postsUrl),
+        axios.get(groupsUrl),
+      ]);
+
+      this.postsCache = postsResponse.data;
+      this.groupsCache = groupsResponse.data;
+    }
+
+    return { posts: this.postsCache, groups: this.groupsCache };
+  }
 
   async parseAndEnrichFile(filePath: string): Promise<any> {
     // parse the file by lne and store in a list
@@ -39,58 +110,6 @@ export class AppService {
         resolve(data);
       });
 
-      // rl.on('line', async (line) => {
-      //   // process each line
-      //   const { username, password, url } =
-      //     this.getUsernamePasswordAndUrl(line);
-
-      //   console.log(`Processing ${url}`);
-
-      //   try {
-      //     const { domain, protocol, port, path } =
-      //       await this.resolveUrlDetails(url);
-
-      //     const { ipAddress, tags: dnsTags } =
-      //       await this.resolveIpAddress(domain);
-
-      //     const { status, title, tags: urlTags } = await this.verifyUrl(url);
-
-      //     const html = status === 200 ? await this.fetchHtml(url) : null;
-
-      //     const formTags = html
-      //       ? await this.analyzeLoginForm(html)
-      //       : { tags: [] };
-
-      //     const allTags = [...dnsTags, ...urlTags, ...formTags.tags];
-
-      //     // Create enriched record
-      //     const breach = new Breach();
-      //     breach.username = username;
-      //     breach.password = password;
-      //     breach.url = url;
-      //     breach.domain = domain;
-      //     breach.ipAddress = ipAddress;
-      //     breach.tags = allTags;
-      //     breach.status = status;
-      //     breach.title = title;
-      //     breach.port = +port || 0;
-      //     breach.urlPath = path;
-      //     breach.protocol = protocol;
-
-      //     await this.breachRepository.save(breach);
-      //     Logger.log(`Processed ${url}`);
-      //     data.push(breach);
-      //   } catch (error) {
-      //     Logger.error(`Error processing ${url}`, error);
-      //     console.error(`Error processing ${url}`, error);
-      //   }
-      // });
-
-      // rl.on('close', () => {
-      //   console.log(`Processing completed in ${Date.now() - start}ms`);
-      //   resolve(data);
-      // });
-
       rl.on('error', (err) => {
         reject(err);
       });
@@ -111,7 +130,16 @@ export class AppService {
       const { status, title, tags: urlTags } = await this.verifyUrl(url);
       const html = status === 200 ? await this.fetchHtml(url) : null;
       const formTags = html ? await this.analyzeLoginForm(html) : { tags: [] };
-      const allTags = [...dnsTags, ...urlTags, ...formTags.tags];
+      const ransomTags = await this.getRansomTags(domain, title);
+      //const appTags = await this.identifyAppTags(path);
+      const detectedApplications = await this.detectApplication([url]);
+      const application = detectedApplications.length > 0 ? detectedApplications[0].application : 'UNKNOWN';
+      
+      const allTags = [...dnsTags, ...urlTags, ...formTags.tags, ...ransomTags];
+      if (application !== 'UNKNOWN') {
+        allTags.push(`app: ${application}`);
+      }
+
 
       const breach = new Breach();
       breach.username = username;
@@ -125,6 +153,7 @@ export class AppService {
       breach.port = +port || 0;
       breach.urlPath = path;
       breach.protocol = protocol;
+      breach.app = application;
 
       await this.breachRepository.save(breach);
       Logger.log(`Processed ${url}`);
@@ -178,7 +207,7 @@ export class AppService {
   async resolveIpAddress(domain: string) {
     try {
       const addresses = await resolve4(domain);
-      return { ipAddress: addresses[0], tags: [] };
+      return { ipAddress: addresses[0], tags: ['RESOLVED'] };
     } catch (error) {
       Logger.warn(`DNS resolution failed for ${domain}, trying root domain`);
       const rootDomain = domain.split('.').slice(-2).join('.');
@@ -200,7 +229,7 @@ export class AppService {
       return {
         status: response.status,
         title,
-        tags: [],
+        tags: ['Accessible'],
       };
     } catch (error) {
       return { status: 0, title: '', tags: ['inaccessible'] };
@@ -217,8 +246,8 @@ export class AppService {
       tags.push('captcha-required');
     }
 
-    if (html.includes('2FA')) {
-      tags.push('2fa-required');
+    if (html.includes('2FA') || html.includes('OTP')) {
+      tags.push('Mfa-required');
     }
 
     return { tags };
@@ -233,4 +262,27 @@ export class AppService {
       return null;
     }
   }
+
+  /**
+   * Get tags based on RansomWatch data.
+   */
+  async getRansomTags(domain: string, title: string): Promise<string[]> {
+    const tags = [];
+    const { posts, groups } = await this.fetchRansomWatchData();
+
+    // Match domain with group locations
+    const linkedGroups = groups.filter((group) =>
+      group.locations.some((location: any) => location.fqdn.includes(domain)),
+    );
+    linkedGroups.forEach((group) => tags.push(`RANSOM_GROUP: ${group.name}`));
+
+    // Match title with posts
+    const matchingPost = posts.find((post) => title.includes(post.post_title));
+    if (matchingPost) {
+      tags.push(`RANSOM_POST: ${matchingPost.group_name}`);
+    }
+
+    return tags;
+  }
+
 }
