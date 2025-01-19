@@ -16,7 +16,6 @@ import { Like } from 'typeorm';
 
 @Injectable()
 export class AppService {
-
   private limit: any; // rate limiter
 
   private postsCache: any | null = null;
@@ -26,45 +25,46 @@ export class AppService {
     @InjectRepository(Breach)
     private breachRepository: Repository<Breach>,
   ) {
-
     const maxRequestPerMinute = 60; // 60 req / min
-    this.limit = pLimit(Math.floor(maxRequestPerMinute / 60)); // 1 req / min 
+    this.limit = pLimit(Math.floor(maxRequestPerMinute / 60)); // 1 req / min
   }
-
 
   /**
    * Detect the application associated with a batch of URLs using Grönq AI.
    * @param batch - Array of URLs to analyze.
    */
-  private async detectApplication(batch: string[]): Promise<{ url: string; application: string }[]> {
+  private async detectApplication(
+    batch: string[],
+  ): Promise<{ url: string; application: string }[]> {
     const results: { url: string; application: string }[] = [];
 
     for (const url of batch) {
       try {
         const groq = new Groq();
         const response = await groq.chat.completions.create({
-          messages: [ 
-          {
-            role: 'system',
-            content: `You are an AI system tasked with analyzing a URL to identify the associated application or platform.
-          Examples of applications include WordPress, Joomla, Magento, Drupal, Shopify, or proprietary platforms. 
+          messages: [
+            {
+              role: 'system',
+              content: `You are an AI system tasked with analyzing a URL to identify the associated application or platform.
+          Examples of applications include WordPress, Joomla, Magento, Drupal, Shopify, or proprietary platforms.
           Your task is to carefully analyze the URL structure and any patterns that might indicate the application used.
           If you cannot confidently identify an application, respond with "UNKNOWN".
-  
+
           URL to analyze: ${url}`,
-          },
-        ],
+            },
+          ],
           model: 'llama-3.3-70b-versatile', // Replace with the Grönq model suitable for your task
         });
-  
-        const application = response.choices[0]?.message?.content?.trim() || 'UNKNOWN';
+
+        const application =
+          response.choices[0]?.message?.content?.trim() || 'UNKNOWN';
         results.push({ url, application });
       } catch (error) {
         Logger.error(`Error processing URL ${url}: ${error.message}`);
         results.push({ url, application: 'UNKNOWN' });
       }
     }
-  
+
     return results;
   }
 
@@ -73,8 +73,10 @@ export class AppService {
    */
   private async fetchRansomWatchData() {
     if (!this.postsCache || !this.groupsCache) {
-      const postsUrl = 'https://raw.githubusercontent.com/joshhighet/ransomwatch/main/posts.json'; 
-      const groupsUrl = 'https://raw.githubusercontent.com/joshhighet/ransomwatch/main/groups.json'; 
+      const postsUrl =
+        'https://raw.githubusercontent.com/joshhighet/ransomwatch/main/posts.json';
+      const groupsUrl =
+        'https://raw.githubusercontent.com/joshhighet/ransomwatch/main/groups.json';
 
       const [postsResponse, groupsResponse] = await Promise.all([
         axios.get(postsUrl),
@@ -134,13 +136,15 @@ export class AppService {
       const ransomTags = await this.getRansomTags(domain, title);
       //const appTags = await this.identifyAppTags(path);
       const detectedApplications = await this.detectApplication([url]);
-      const application = detectedApplications.length > 0 ? detectedApplications[0].application : 'UNKNOWN';
-      
+      const application =
+        detectedApplications.length > 0
+          ? detectedApplications[0].application
+          : 'UNKNOWN';
+
       const allTags = [...dnsTags, ...urlTags, ...formTags.tags, ...ransomTags];
       if (application !== 'UNKNOWN') {
         allTags.push(`app: ${application}`);
       }
-
 
       const breach = new Breach();
       breach.username = username;
@@ -197,25 +201,29 @@ export class AppService {
 
   async filterBreaches(query: Record<string, string>): Promise<any> {
     const qb = this.breachRepository.createQueryBuilder('breach');
-  
+
     // Apply filters dynamically
     for (const [key, value] of Object.entries(query)) {
       if (key === 'tags') {
         // Handle multiple tags
-        const tags = value.split(','); // Split tags by comma
+        const tags = value.split(',');
         tags.forEach((tag, index) => {
           qb.andWhere(`FIND_IN_SET(:tag${index}, breach.tags) > 0`, {
             [`tag${index}`]: tag.trim(),
           });
         });
+      } else if (key === 'routableOnly' && value === 'true') {
+        // Filter out non-routable IPs
+        qb.andWhere(
+          `(NOT breach.ipAddress LIKE '127.%' AND NOT breach.ipAddress = 'localhost' AND NOT breach.ipAddress LIKE '192.168.%' AND NOT breach.ipAddress LIKE '10.%' AND NOT (breach.ipAddress LIKE '172.%' AND SUBSTRING_INDEX(breach.ipAddress, '.', 2) BETWEEN '172.16' AND '172.31'))`,
+        );
       } else {
         qb.andWhere(`breach.${key} = :${key}`, { [key]: value });
       }
     }
-  
-    return qb.getMany();
-  }  
 
+    return qb.getMany();
+  }
 
   findAll(): Promise<Breach[]> {
     return this.breachRepository.find();
@@ -310,5 +318,4 @@ export class AppService {
 
     return tags;
   }
-
 }
