@@ -10,11 +10,6 @@ import { Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
-  @Get()
-  getHello(): string {
-    return 'Hello World!';
-  }
-
   @Post('/upload')
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
@@ -30,10 +25,29 @@ export class AppController {
       },
     }),
   }))
-  handleUpload(@UploadedFile() file: Express.Multer.File) {
+  async handleUpload(@UploadedFile() file: Express.Multer.File): Promise<any> { 
+    try {
 
-    // logic goes here (needs update)
-    console.log('file', file);
-    return 'file uploaded api'; 
-  } 
+      // parse the uploaded file
+      const parsedData = await this.appService.parseFile(file.path);
+
+      // enrich the data
+      const enrichedData = await Promise.all(
+        parsedData.map(async (data) => {
+          return await this.appService.enrichData(data.url);
+        }),
+      );
+
+      // save the database with the enriched data
+      await this.appService.seedDatabase(enrichedData);
+
+      return {
+        message: 'file processed successfully',
+        enrichedData,
+      };
+  } catch (error) {
+    console.error('error processing file', error);
+    throw new Error('failed to process file try again');
+    }
+  }
 }
