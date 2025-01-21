@@ -115,7 +115,6 @@ export class AppService {
   async processLine(line: string): Promise<void> {
     const { username, password, url } = this.getUsernamePasswordAndUrl(line);
     if (!username || !password || !url) {
-      Logger.warn(`Skipping malformed line: ${line}`);
       return;
     }
 
@@ -146,10 +145,7 @@ export class AppService {
       breach.app = application;
 
       await this.breachRepository.save(breach);
-      Logger.log(`Processed ${url}`);
-    } catch (error) {
-      Logger.error(`Error processing ${url}: ${error.message}`);
-    }
+    } catch (error) {}
   }
 
   getUsernamePasswordAndUrl(data: string): {
@@ -179,7 +175,6 @@ export class AppService {
 
       return { domain, protocol, path, port };
     } catch (error) {
-      console.error('Error parsing url', error.message);
       return { domain: '', protocol: '', path: '', port: '' };
     }
   }
@@ -228,13 +223,11 @@ export class AppService {
       const addresses = await resolve4(domain);
       return { ipAddress: addresses[0], tags: ['RESOLVED'] };
     } catch (error) {
-      Logger.warn(`DNS resolution failed for ${domain}, trying root domain`);
       const rootDomain = domain.split('.').slice(-2).join('.');
       try {
         const addresses = await resolve4(rootDomain);
         return { ipAddress: addresses[0], tags: ['root-domain-fallback'] };
       } catch {
-        console.error('Error resolving domain:', error.message);
         return { ipAddress: '0.0.0.0', tags: ['unresolved'] };
       }
     }
@@ -277,7 +270,6 @@ export class AppService {
       const response = await axios.get(url, { timeout: 15000 });
       return response.data;
     } catch (error) {
-      console.error('Error fetching html:', error.message);
       return null;
     }
   }

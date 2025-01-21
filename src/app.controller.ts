@@ -53,7 +53,6 @@ export class AppController {
         // enrichedData,
       };
     } catch (error) {
-      console.error('error processing file', error);
       throw new Error('failed to process file try again');
     }
   }
